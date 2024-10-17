@@ -4,14 +4,15 @@ import { useCookies } from "react-cookie";
 
 const MatchesDisplay = ({ matches, setClickedUser }) => {
   const [matchedProfiles, setMatchedProfiles] = useState(null);
-  const [cookies, setCookie, removeCookie] = useCookies(null);
+  const [cookies] = useCookies(null); // No need to set cookies again if you're not changing them
 
   const matchedUserIds = matches.map(({ user_id }) => user_id);
   const userId = cookies.UserId;
 
   const getMatches = async () => {
     try {
-      const response = await axios.get("http://localhost:8000/users", {
+      const API_URL = process.env.REACT_APP_API_URL; // Use the environment variable
+      const response = await axios.get(`${API_URL}/users`, {
         params: { userIds: JSON.stringify(matchedUserIds) },
       });
       setMatchedProfiles(response.data);
