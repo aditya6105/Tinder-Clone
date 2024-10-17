@@ -7,17 +7,25 @@ const cors = require("cors");
 const bcrypt = require("bcryptjs");
 require("dotenv").config();
 
-const uri = process.env.URI;
+const uri = process.env.URI; // Ensure this is set in your environment variables
+const JWT_SECRET = process.env.JWT_SECRET; // Add this in your environment variables
 
 const app = express();
-app.use(cors());
+app.use(
+  cors({
+    origin:
+      "https://tinder-clone-frontend-igbijgeor-aditya6105s-projects.vercel.app", // Set your frontend URL
+    methods: "GET, POST, PUT, DELETE",
+    credentials: true, // Important if using cookies/auth
+  })
+);
 app.use(express.json());
 
 app.get("/", (req, res) => {
   res.json("Welcome to my app");
 });
 
-// signup to the database
+// Signup Route
 app.post("/signup", async (req, res) => {
   const client = new MongoClient(uri);
   const { email, password } = req.body;
@@ -46,18 +54,19 @@ app.post("/signup", async (req, res) => {
 
     const insertedUser = await users.insertOne(data);
 
-    const token = jwt.sign(insertedUser, sanitizedEmail, {
-      expiresIn: 60 * 24,
+    const token = jwt.sign({ userId: generatedUserId }, JWT_SECRET, {
+      expiresIn: "24h",
     });
     res.status(201).json({ token, userId: generatedUserId });
   } catch (err) {
-    console.log(err);
+    console.error("Error during signup:", err);
+    res.status(500).send("Server error");
   } finally {
     await client.close();
   }
 });
 
-// login to the database
+// Login Route
 app.post("/login", async (req, res) => {
   const client = new MongoClient(uri);
   const { email, password } = req.body;
@@ -69,23 +78,36 @@ app.post("/login", async (req, res) => {
 
     const user = await users.findOne({ email });
 
+    if (!user) {
+      console.log("User not found");
+      return res.status(404).send("User not found");
+    }
+
     const correctPassword = await bcrypt.compare(
       password,
       user.hashed_password
     );
-    if (user && correctPassword) {
-      const token = jwt.sign(user, email, {
-        expiresIn: 60 * 24,
-      });
-      res.status(201).json({ token, userId: user.user_id });
+
+    if (!correctPassword) {
+      console.log("Incorrect password");
+      return res.status(401).send("Password is incorrect");
     }
-    res.status(400).send("Invalid Credentials");
+
+    const token = jwt.sign({ userId: user.user_id }, JWT_SECRET, {
+      expiresIn: "24h",
+    });
+
+    console.log("Login successful. Sending token.");
+    res.status(201).json({ token, userId: user.user_id });
   } catch (err) {
-    console.log(err);
+    console.error("Error during login:", err);
+    res.status(500).send("Server error");
+  } finally {
+    await client.close();
   }
 });
 
-// get individual user
+// Get Individual User
 app.get("/user", async (req, res) => {
   const client = new MongoClient(uri);
   const userId = req.query.userId;
@@ -98,6 +120,9 @@ app.get("/user", async (req, res) => {
     const query = { user_id: userId };
     const user = await users.findOne(query);
     res.send(user);
+  } catch (err) {
+    console.error("Error fetching user:", err);
+    res.status(500).send("Server error");
   } finally {
     await client.close();
   }
@@ -126,11 +151,15 @@ app.get("/users", async (req, res) => {
     const foundUsers = await users.aggregate(pipeline).toArray();
 
     res.json(foundUsers);
+  } catch (err) {
+    console.error("Error fetching users:", err);
+    res.status(500).send("Server error");
   } finally {
     await client.close();
   }
 });
 
+// Get Gendered Users
 app.get("/gendered-users", async (req, res) => {
   const client = new MongoClient(uri);
   const gender = req.query.gender;
@@ -142,11 +171,15 @@ app.get("/gendered-users", async (req, res) => {
     const query = { gender_identity: { $eq: gender } };
     const foundUsers = await users.find(query).toArray();
     res.json(foundUsers);
+  } catch (err) {
+    console.error("Error fetching gendered users:", err);
+    res.status(500).send("Server error");
   } finally {
     await client.close();
   }
 });
 
+// Update User
 app.put("/user", async (req, res) => {
   const client = new MongoClient(uri);
   const formData = req.body.formData;
@@ -158,27 +191,19 @@ app.put("/user", async (req, res) => {
 
     const query = { user_id: formData.user_id };
     const updateDocument = {
-      $set: {
-        first_name: formData.first_name,
-        dob_day: formData.dob_day,
-        dob_month: formData.dob_month,
-        dob_year: formData.dob_year,
-        show_gender: formData.show_gender,
-        gender_identity: formData.gender_identity,
-        gender_interest: formData.gender_interest,
-        url: formData.url,
-        about: formData.about,
-        matches: formData.matches,
-      },
+      $set: formData,
     };
-    const insertedUserser = await users.updateOne(query, updateDocument);
-    res.send(insertedUserser);
+    const result = await users.updateOne(query, updateDocument);
+    res.send(result);
+  } catch (err) {
+    console.error("Error updating user:", err);
+    res.status(500).send("Server error");
   } finally {
     await client.close();
   }
 });
 
-// Update User with a match
+// Add Match
 app.put("/addmatch", async (req, res) => {
   const client = new MongoClient(uri);
   const { userId, matchedUserId } = req.body;
@@ -192,14 +217,17 @@ app.put("/addmatch", async (req, res) => {
     const updateDocument = {
       $push: { matches: { user_id: matchedUserId } },
     };
-    const user = await users.updateOne(query, updateDocument);
-    res.send(user);
+    const result = await users.updateOne(query, updateDocument);
+    res.send(result);
+  } catch (err) {
+    console.error("Error adding match:", err);
+    res.status(500).send("Server error");
   } finally {
     await client.close();
   }
 });
 
-// Get Messages by from_userId and to_userId
+// Get Messages between Users
 app.get("/messages", async (req, res) => {
   const { userId, correspondingUserId } = req.query;
   const client = new MongoClient(uri);
@@ -215,12 +243,15 @@ app.get("/messages", async (req, res) => {
     };
     const foundMessages = await messages.find(query).toArray();
     res.send(foundMessages);
+  } catch (err) {
+    console.error("Error fetching messages:", err);
+    res.status(500).send("Server error");
   } finally {
     await client.close();
   }
 });
 
-// Add a Message to our Database
+// Add a Message
 app.post("/message", async (req, res) => {
   const client = new MongoClient(uri);
   const message = req.body.message;
@@ -232,9 +263,12 @@ app.post("/message", async (req, res) => {
 
     const insertedMessage = await messages.insertOne(message);
     res.send(insertedMessage);
+  } catch (err) {
+    console.error("Error adding message:", err);
+    res.status(500).send("Server error");
   } finally {
     await client.close();
   }
 });
 
-app.listen(PORT, () => console.log("server running on port" + PORT));
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
