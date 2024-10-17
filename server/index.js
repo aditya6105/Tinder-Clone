@@ -14,7 +14,7 @@ const app = express();
 app.use(
   cors({
     origin:
-      "https://tinder-clone-frontend-igbijgeor-aditya6105s-projects.vercel.app", // Set your frontend URL
+      "https://tinder-clone-frontend-git-main-aditya6105s-projects.vercel.app", // Ensure this matches your frontend URL
     methods: "GET, POST, PUT, DELETE",
     credentials: true, // Important if using cookies/auth
   })
