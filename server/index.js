@@ -65,7 +65,7 @@ app.post("/signup", async (req, res) => {
       hashed_password: hashedPassword,
     };
 
-    const insertedUser = await users.insertOne(data);
+    await users.insertOne(data);
 
     const token = jwt.sign({ userId: generatedUserId }, JWT_SECRET, {
       expiresIn: "24h",
@@ -120,7 +120,73 @@ app.post("/login", async (req, res) => {
   }
 });
 
-// Update User Route (PUT)
+// Get Individual User
+app.get("/user", async (req, res) => {
+  const client = new MongoClient(uri);
+  const userId = req.query.userId;
+
+  try {
+    await client.connect();
+    const database = client.db("app-data");
+    const users = database.collection("users");
+
+    const query = { user_id: userId };
+    const user = await users.findOne(query);
+    if (!user) {
+      return res.status(404).send("User not found");
+    }
+    res.send(user);
+  } catch (err) {
+    console.error("Error retrieving user:", err);
+    res.status(500).send("Server error");
+  } finally {
+    await client.close();
+  }
+});
+
+// Get All Users by UserIds
+app.get("/users", async (req, res) => {
+  const client = new MongoClient(uri);
+  const userIds = JSON.parse(req.query.userIds);
+
+  try {
+    await client.connect();
+    const database = client.db("app-data");
+    const users = database.collection("users");
+
+    const foundUsers = await users
+      .find({ user_id: { $in: userIds } })
+      .toArray();
+    res.json(foundUsers);
+  } catch (err) {
+    console.error("Error retrieving users:", err);
+    res.status(500).send("Server error");
+  } finally {
+    await client.close();
+  }
+});
+
+// Get Gendered Users
+app.get("/gendered-users", async (req, res) => {
+  const client = new MongoClient(uri);
+  const gender = req.query.gender;
+
+  try {
+    await client.connect();
+    const database = client.db("app-data");
+    const users = database.collection("users");
+    const query = { gender_identity: { $eq: gender } };
+    const foundUsers = await users.find(query).toArray();
+    res.json(foundUsers);
+  } catch (err) {
+    console.error("Error retrieving gendered users:", err);
+    res.status(500).send("Server error");
+  } finally {
+    await client.close();
+  }
+});
+
+// Update User
 app.put("/user", async (req, res) => {
   const client = new MongoClient(uri);
   const { userId, updateData } = req.body; // Assuming updateData contains fields to be updated
@@ -142,6 +208,74 @@ app.put("/user", async (req, res) => {
     res.status(200).json({ message: "User updated successfully" });
   } catch (err) {
     console.error("Error updating user:", err);
+    res.status(500).send("Server error");
+  } finally {
+    await client.close();
+  }
+});
+
+// Add Match
+app.put("/addmatch", async (req, res) => {
+  const client = new MongoClient(uri);
+  const { userId, matchedUserId } = req.body;
+
+  try {
+    await client.connect();
+    const database = client.db("app-data");
+    const users = database.collection("users");
+
+    const query = { user_id: userId };
+    const updateDocument = {
+      $push: { matches: { user_id: matchedUserId } },
+    };
+    const user = await users.updateOne(query, updateDocument);
+    res.send(user);
+  } catch (err) {
+    console.error("Error adding match:", err);
+    res.status(500).send("Server error");
+  } finally {
+    await client.close();
+  }
+});
+
+// Get Messages
+app.get("/messages", async (req, res) => {
+  const { userId, correspondingUserId } = req.query;
+  const client = new MongoClient(uri);
+
+  try {
+    await client.connect();
+    const database = client.db("app-data");
+    const messages = database.collection("messages");
+
+    const query = {
+      from_userId: userId,
+      to_userId: correspondingUserId,
+    };
+    const foundMessages = await messages.find(query).toArray();
+    res.send(foundMessages);
+  } catch (err) {
+    console.error("Error retrieving messages:", err);
+    res.status(500).send("Server error");
+  } finally {
+    await client.close();
+  }
+});
+
+// Add a Message
+app.post("/message", async (req, res) => {
+  const client = new MongoClient(uri);
+  const message = req.body.message;
+
+  try {
+    await client.connect();
+    const database = client.db("app-data");
+    const messages = database.collection("messages");
+
+    const insertedMessage = await messages.insertOne(message);
+    res.send(insertedMessage);
+  } catch (err) {
+    console.error("Error adding message:", err);
     res.status(500).send("Server error");
   } finally {
     await client.close();
