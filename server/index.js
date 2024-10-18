@@ -12,7 +12,6 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 
-// Allowed origins for CORS
 const allowedOrigins = [
   "https://tinder-clone-frontend-sigma.vercel.app",
   "https://tinder-clone-frontend-git-main-aditya6105s-projects.vercel.app",
@@ -21,7 +20,6 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
-      // CORS logic to handle multiple origins
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -33,7 +31,6 @@ app.use(
   })
 );
 
-// Middleware for JSON data
 app.use(express.json());
 app.options("*", cors()); // Preflight request handling
 
@@ -117,6 +114,34 @@ app.post("/login", async (req, res) => {
     res.status(201).json({ token, userId: user.user_id });
   } catch (err) {
     console.error("Error during login:", err);
+    res.status(500).send("Server error");
+  } finally {
+    await client.close();
+  }
+});
+
+// Update User Route (PUT)
+app.put("/user", async (req, res) => {
+  const client = new MongoClient(uri);
+  const { userId, updateData } = req.body; // Assuming updateData contains fields to be updated
+
+  try {
+    await client.connect();
+    const database = client.db("app-data");
+    const users = database.collection("users");
+
+    const result = await users.updateOne(
+      { user_id: userId },
+      { $set: updateData }
+    );
+
+    if (result.modifiedCount === 0) {
+      return res.status(404).send("User not found or no changes made");
+    }
+
+    res.status(200).json({ message: "User updated successfully" });
+  } catch (err) {
+    console.error("Error updating user:", err);
     res.status(500).send("Server error");
   } finally {
     await client.close();
