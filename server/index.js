@@ -12,6 +12,7 @@ const JWT_SECRET = process.env.JWT_SECRET;
 
 const app = express();
 
+// Allowed origins for CORS
 const allowedOrigins = [
   "https://tinder-clone-frontend-sigma.vercel.app",
   "https://tinder-clone-frontend-git-main-aditya6105s-projects.vercel.app",
@@ -20,6 +21,7 @@ const allowedOrigins = [
 app.use(
   cors({
     origin: function (origin, callback) {
+      // CORS logic to handle multiple origins
       if (!origin || allowedOrigins.includes(origin)) {
         callback(null, true);
       } else {
@@ -31,6 +33,7 @@ app.use(
   })
 );
 
+// Middleware for JSON data
 app.use(express.json());
 app.options("*", cors()); // Preflight request handling
 
@@ -119,7 +122,5 @@ app.post("/login", async (req, res) => {
     await client.close();
   }
 });
-
-// Other routes here
 
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
