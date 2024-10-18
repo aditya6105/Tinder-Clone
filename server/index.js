@@ -1,4 +1,4 @@
-const PORT = process.env.PORT || 8000;
+const PORT = process.env.PORT || 10000;
 const express = require("express");
 const { MongoClient } = require("mongodb");
 const { v4: uuidv4 } = require("uuid");
@@ -17,7 +17,6 @@ const allowedOrigins = [
   "https://tinder-clone-frontend-git-main-aditya6105s-projects.vercel.app",
 ];
 
-// CORS Middleware
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -31,20 +30,6 @@ app.use(
     credentials: true,
   })
 );
-
-// Explicit CORS Headers for Debugging
-app.use((req, res, next) => {
-  res.header(
-    "Access-Control-Allow-Origin",
-    "https://tinder-clone-frontend-sigma.vercel.app"
-  );
-  res.header(
-    "Access-Control-Allow-Headers",
-    "Origin, X-Requested-With, Content-Type, Accept"
-  );
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  next();
-});
 
 app.use(express.json());
 app.options("*", cors()); // Preflight request handling
@@ -107,7 +92,6 @@ app.post("/login", async (req, res) => {
     const user = await users.findOne({ email });
 
     if (!user) {
-      console.log("User not found");
       return res.status(404).send("User not found");
     }
 
@@ -117,7 +101,6 @@ app.post("/login", async (req, res) => {
     );
 
     if (!correctPassword) {
-      console.log("Incorrect password");
       return res.status(401).send("Password is incorrect");
     }
 
@@ -125,7 +108,6 @@ app.post("/login", async (req, res) => {
       expiresIn: "24h",
     });
 
-    console.log("Login successful. Sending token.");
     res.status(201).json({ token, userId: user.user_id });
   } catch (err) {
     console.error("Error during login:", err);
@@ -201,18 +183,26 @@ app.get("/gendered-users", async (req, res) => {
   }
 });
 
-// Update User
+// **Updated PUT User Route**
 app.put("/user", async (req, res) => {
   const client = new MongoClient(uri);
-  const { userId, updateData } = req.body; // Assuming updateData contains fields to be updated
+  const { userId, updateData } = req.body;
 
-  // Filter out null or undefined fields from updateData
+  // Validate request body
+  if (!userId || !updateData) {
+    return res
+      .status(400)
+      .json({ message: "userId and updateData are required" });
+  }
+
+  // Sanitize updateData to remove null or undefined fields
   const sanitizedUpdateData = Object.fromEntries(
     Object.entries(updateData).filter(([_, v]) => v != null)
   );
 
-  console.log("Updating user with ID:", userId);
-  console.log("Update data:", sanitizedUpdateData);
+  if (Object.keys(sanitizedUpdateData).length === 0) {
+    return res.status(400).json({ message: "No valid fields to update" });
+  }
 
   try {
     await client.connect();
