@@ -191,6 +191,11 @@ app.put("/user", async (req, res) => {
   const client = new MongoClient(uri);
   const { userId, updateData } = req.body; // Assuming updateData contains fields to be updated
 
+  // Filter out null or undefined fields from updateData
+  const sanitizedUpdateData = Object.fromEntries(
+    Object.entries(updateData).filter(([_, v]) => v != null)
+  );
+
   try {
     await client.connect();
     const database = client.db("app-data");
