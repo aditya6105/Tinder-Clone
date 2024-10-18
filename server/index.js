@@ -17,6 +17,7 @@ const allowedOrigins = [
   "https://tinder-clone-frontend-git-main-aditya6105s-projects.vercel.app",
 ];
 
+// CORS Middleware
 app.use(
   cors({
     origin: function (origin, callback) {
@@ -30,6 +31,20 @@ app.use(
     credentials: true,
   })
 );
+
+// Explicit CORS Headers for Debugging
+app.use((req, res, next) => {
+  res.header(
+    "Access-Control-Allow-Origin",
+    "https://tinder-clone-frontend-sigma.vercel.app"
+  );
+  res.header(
+    "Access-Control-Allow-Headers",
+    "Origin, X-Requested-With, Content-Type, Accept"
+  );
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  next();
+});
 
 app.use(express.json());
 app.options("*", cors()); // Preflight request handling
@@ -196,6 +211,9 @@ app.put("/user", async (req, res) => {
     Object.entries(updateData).filter(([_, v]) => v != null)
   );
 
+  console.log("Updating user with ID:", userId);
+  console.log("Update data:", sanitizedUpdateData);
+
   try {
     await client.connect();
     const database = client.db("app-data");
@@ -203,7 +221,7 @@ app.put("/user", async (req, res) => {
 
     const result = await users.updateOne(
       { user_id: userId },
-      { $set: updateData }
+      { $set: sanitizedUpdateData }
     );
 
     if (result.modifiedCount === 0) {
