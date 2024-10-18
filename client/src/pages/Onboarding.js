@@ -21,13 +21,22 @@ const Onboarding = () => {
   });
 
   let navigate = useNavigate();
-  const API_URL = process.env.REACT_APP_API_URL; // Use the environment variable
+  const API_URL = process.env.REACT_APP_API_URL; // Make sure this is set in your .env file
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Extract user_id and updateData
+    const userId = formData.user_id;
+    const updateData = { ...formData };
+    delete updateData.user_id; // Remove user_id from the updateData
+
     try {
-      const response = await axios.put(`${API_URL}/user`, { formData }); // Updated URL
+      const response = await axios.put(`${API_URL}/user`, {
+        userId, // Send userId separately
+        updateData, // Send rest of the form data as updateData
+      });
+
       const success = response.status === 200;
       if (success) navigate("/dashboard");
     } catch (err) {
